@@ -1,24 +1,54 @@
-import './style.css'
-import javascriptLogo from './javascript.svg'
-import viteLogo from '/vite.svg'
-import { setupCounter } from './counter.js'
+import { generateClient } from "aws-amplify/data";
+// import type { Schema } from "../amplify/data/resource";
+import './style.css';
+import { Amplify } from 'aws-amplify';
+import outputs from './amplify_outputs.json';
 
-document.querySelector('#app').innerHTML = `
-  <div>
-    <a href="https://vite.dev" target="_blank">
-      <img src="${viteLogo}" class="logo" alt="Vite logo" />
-    </a>
-    <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank">
-      <img src="${javascriptLogo}" class="logo vanilla" alt="JavaScript logo" />
-    </a>
-    <h1>Hello Vite!</h1>
-    <div class="card">
-      <button id="counter" type="button"></button>
-    </div>
-    <p class="read-the-docs">
-      Click on the Vite logo to learn more
-    </p>
-  </div>
-`
+Amplify.configure(outputs);
 
-setupCounter(document.querySelector('#counter'))
+
+const client = generateClient();
+
+document.addEventListener("DOMContentLoaded", function () {
+    const todos = [];
+    const todoList = document.getElementById("todoList");
+    const addTodoButton = document.getElementById("addTodo");
+
+    addTodoButton.addEventListener("click", createTodo);
+
+    function updateUI() {
+        todoList.innerHTML = '';
+        todos.forEach(todo => {
+            const li = document.createElement('li');
+            li.textContent = todo.content ?? '';
+            todoList.appendChild(li);
+        });
+    }
+
+    function createTodo() {
+      console.log('createTodo');
+      const content = window.prompt("Todo content");
+      if (content) {
+          client.models.Todo.create({ content }).then(response => {
+              if (response.data && !response.errors) {
+                  todos.push(response.data);
+                  updateUI();
+              } else {
+                  console.error('Error creating todo:', response.errors);
+                  alert('Failed to create todo.');
+              }
+          }).catch(error => {
+              console.error('Network or other error:', error);
+              alert('Failed to create todo due to a network or other error.');
+          });
+      }
+  }
+
+
+    client.models.Todo.observeQuery().subscribe({
+        next: (data) => {
+            todos.splice(0, todos.length, ...data.items);
+            updateUI();
+        }
+    });
+});
